@@ -1071,13 +1071,16 @@ def create_start_conditions(
     field.ac = 277.5
     field.bh = 0
     field.fc = 7441498
+    # Planes: match Classic stadium physics
+    # - Outer boundaries have bCoef = 0.1
+    # - Kickoff circle limits (ballArea) have bCoef = 1 and mask = ball only (h = 1)
     field.ha = [
-        I(32, -200, -1, 0, Vector(x=0, y=1)),
-        I(32, -200, -1, 0, Vector(x=0, y=-1)),
-        I(32, -420, -1, 0, Vector(x=1, y=0)),
-        I(32, -420, -1, 0, Vector(x=-1, y=0)),
-        I(32, -170, 1, 1, Vector(x=0, y=1)),
-        I(32, -170, 1, 1, Vector(x=0, y=-1)),
+        I(32, -200, 63, 0.1, Vector(x=0, y=1)),   # top outer plane (mask: all)
+        I(32, -200, 63, 0.1, Vector(x=0, y=-1)),  # bottom outer plane (mask: all)
+        I(32, -420, 63, 0.1, Vector(x=1, y=0)),   # right outer plane (mask: all)
+        I(32, -420, 63, 0.1, Vector(x=-1, y=0)),  # left outer plane (mask: all)
+        I(32, -170, 1, 1, Vector(x=0, y=1)),      # top ballArea (ball only)
+        I(32, -170, 1, 1, Vector(x=0, y=-1)),     # bottom ballArea (ball only)
     ]
     field.hc = 200
     field.kc = [
@@ -1210,7 +1213,8 @@ def create_start_conditions(
     game_play.pc = 0
     game_play.wa = field_physics
     game_play.xa = 0
-    game_play.zb = 0
+    # If tempo_iniziale > 0 assume game is ongoing (zb=1), else kickoff (zb=0)
+    game_play.zb = 1 if tempo_iniziale > 0 else 0
     game_play.red_team_inst = red_team
     game_play.blu_team_inst = blue_team
     game_play.spec_team_inst = spectators_team

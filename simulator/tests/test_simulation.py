@@ -1,6 +1,6 @@
 import copy
 import unittest
-from simulator import Vector, Room, GamePlay, FieldPhysics, BasicObject, z, I, Field, User, Object, Team, zb, D
+from simulator import Vector, Room, GamePlay, FieldPhysics, BasicObject, z, I, Field, User, Object, Team, zb, D, create_start_conditions
 import pandas as pd
 
 
@@ -9,7 +9,7 @@ class TestSimulation(unittest.TestCase):
         df = pd.read_csv('simulations.csv', sep=';', float_precision='round_trip', dtype='float64')
         for i, row in df.iterrows():
             # print(row)
-            gameplay = self.create_start_conditions(
+            gameplay = create_start_conditions(
                 posizione_palla=Vector(row.palla_pos_x, row.palla_pos_y),  # this.kd
                 velocita_palla=Vector(row.palla_vel_x, row.palla_vel_y),  # this.wa.K[0].M
                 posizione_blu=Vector(row.blu_pos_x, row.blu_pos_y),  # this.wa.K[6].a
