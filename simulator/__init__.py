@@ -693,8 +693,13 @@ class GamePlay:
         """
         self.pc = 300
         self.zb = 3
-        if self.Pa.pi is not None:
-            self.Pa.pi(p.ba if self.Kb > self.Cb else p.ta)  # TODO p.ba, p.ta saranno le classi delle squadre Rossa e Blu, poco importante
+        if getattr(self.Pa, 'pi', None) is not None:
+            # Notify room callback with the winning team instance if available
+            winner = self.red_team_inst if self.Kb > self.Cb else self.blu_team_inst
+            try:
+                self.Pa.pi(winner)
+            except Exception:
+                pass
 
     def reset(self):
         create_start_conditions(
@@ -968,17 +973,14 @@ def create_start_conditions(
     field.ac = 277.5
     field.bh = 0
     field.fc = 7441498
+    # Planes: align with Classic stadium
     field.ha = [
-        # I(32, -200, -1, 0, Vector(x=0, y=1)),
-        I(32, -200, 63, 0, Vector(x=0, y=1)),
-        # I(32, -200, -1, 0, Vector(x=0, y=-1)),
-        I(32, -200, 63, 0, Vector(x=0, y=-1)),
-        # I(32, -420, -1, 0, Vector(x=1, y=0)),
-        I(32, -420, 63, 0, Vector(x=1, y=0)),
-        # I(32, -420, -1, 0, Vector(x=-1, y=0)),
-        I(32, -420, 63, 0, Vector(x=-1, y=0)),
-        I(32, -170, 1, 1, Vector(x=0, y=1)),
-        I(32, -170, 1, 1, Vector(x=0, y=-1)),
+        I(32, -200, 63, 0.1, Vector(x=0, y=1)),   # top outer plane
+        I(32, -200, 63, 0.1, Vector(x=0, y=-1)),  # bottom outer plane
+        I(32, -420, 63, 0.1, Vector(x=1, y=0)),   # right outer plane
+        I(32, -420, 63, 0.1, Vector(x=-1, y=0)),  # left outer plane
+        I(32, -170, 1, 1, Vector(x=0, y=1)),      # top ballArea (ball only)
+        I(32, -170, 1, 1, Vector(x=0, y=-1)),     # bottom ballArea (ball only)
     ]
     field.hc = 200
     field.kc = [
@@ -1111,7 +1113,8 @@ def create_start_conditions(
     game_play.pc = 0
     game_play.wa = field_physics
     game_play.xa = 0
-    game_play.zb = 0
+    # If tempo_iniziale > 0, game is ongoing; else kickoff state
+    game_play.zb = 1 if tempo_iniziale > 0 else 0
     game_play.red_team_inst = red_team
     game_play.blu_team_inst = blue_team
     game_play.spec_team_inst = spectators_team
