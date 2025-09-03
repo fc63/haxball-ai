@@ -2,7 +2,11 @@ import random
 from abc import ABC, abstractmethod
 from typing import Tuple
 
-from pychrome.tab import Tab
+try:
+    from pychrome.tab import Tab  # type: ignore
+except Exception:
+    class Tab:  # minimal stub to avoid import error in non-browser flows
+        ...
 import json
 
 

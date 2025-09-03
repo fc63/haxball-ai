@@ -94,7 +94,7 @@ if __name__ == '__main__':
 
     nsteps = 5
     gamma = 0.99
-    nenvs = 1
+    nenvs = 2
     total_timesteps = int(10e7)
     log_interval = 100
 

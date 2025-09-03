@@ -230,6 +230,8 @@ cdef class User:
     cdef public Object F
     cdef public int T
     cdef public int bc
+    cdef public int hold
+    cdef public int kicked_this_hold
     cdef public int mb
     cdef public str o
     cdef public int ra
@@ -238,6 +240,7 @@ cdef class User:
     cdef public str wd
     cdef public int wg
     cdef public int xd
+    cdef public Vector kick_indicator
 
     def __init__(self) -> None:
         self.dollar = None  # type: Team
@@ -245,6 +248,8 @@ cdef class User:
         self.F = None  # type: Object
         self.T = 0
         self.bc = False  # type: bool
+        self.hold = 0
+        self.kicked_this_hold = 0
         # self.im = None
         # self.jb = None
         self.mb = 0
@@ -255,6 +260,7 @@ cdef class User:
         self.wd = "it"  # type: str
         self.wg = 0
         self.xd = False  # type: bool
+        self.kick_indicator = None
 
 cdef class mb:
     """
@@ -333,10 +339,10 @@ cdef class I:
     cdef public int B
     cdef public int Oa
     cdef public int h
-    cdef public int l
+    cdef public float l
     cdef public Vector sa
 
-    def __init__(self, B: int, Oa: int, h: int, l: int, sa: Vector) -> None:
+    def __init__(self, B: int, Oa: int, h: int, l: float, sa: Vector) -> None:
         self.B = B
         self.Oa = Oa
         self.h = h
@@ -681,27 +687,25 @@ cdef class GamePlay:
                 g = f.y - g.y  # , g = f.y - g.y
                 k = sqrt(n * n + g * g) - b.la - e.F.la  # , k = Math.sqrt(n * n + g * g) - b.la - e.F.la;
 
-                if (e.mb & 16) == 0:  # if ((e.mb & 16) == 0)
-                    e.bc = 0  # e.bc = 0
+                # Hold-to-kick: maintain hold state, single-shot kick per hold, and UI flag bc
+                is_holding = 1 if ((e.mb & 16) != 0) else 0
+                if is_holding and e.hold == 0:
+                    e.kicked_this_hold = 0
+                e.hold = is_holding
+                e.bc = is_holding
 
                 f = self.U.Rd  # f = this.U.Rd;
-                if e.bc and k < 4:  # if (e.bc && 4 > k) {
-                    if f.Kd != 0: # if (0 != f.Kd) {
-                        # Entra qua quando la palla viene calciata
-                        k = sqrt(n * n + g * g)  # var k = Math.sqrt(n * n + g * g)
-                        h = f.Kd  # , h = f.Kd
-                        l = b.M  # , l = b.M
-                        m = b.M  # , m = b.M
-                        q = b.pa  # , q = b.pa;
-                        l.x = m.x + n / k * h * q  # l.x = m.x + n / k * h * q;
-                        l.y = m.y + g / k * h * q  # l.y = m.y + g / k * h * q;
-                        """
-                        if(this.Pa.Oh != null)
-                        {
-                            this.Pa.Oh(e); // il suono di un calcio?
-                        }
-                        """
-                    e.bc = 0  # e.bc = 0;
+                if is_holding and (e.kicked_this_hold == 0) and k < 4:
+                    if f.Kd != 0:
+                        # Apply single impulse in direction from player to ball
+                        k = sqrt(n * n + g * g)
+                        h = f.Kd
+                        l = b.M
+                        m = b.M
+                        q = b.pa
+                        l.x = m.x + n / k * h * q
+                        l.y = m.y + g / k * h * q
+                    e.kicked_this_hold = 1
 
                 k = e.mb  # k = e.mb;
                 g = 0
@@ -717,10 +721,25 @@ cdef class GamePlay:
                     g /= k  # g /= k;
 
                 k = e.F.M  # k = e.F.M;
-                h = f.Be if e.bc else f.me  # h = e.bc ? f.Be : f.me;
+                h = f.Be if is_holding else f.me  # slowdown while holding
                 k.x += n * h  # k.x += n * h;
                 k.y += g * h  # k.y += g * h;
-                e.F.Ba = f.Ce if e.bc else f.Ba  # e.F.Ba = e.bc ? f.Ce : f.
+                e.F.Ba = f.Ce if is_holding else f.Ba  # increased damping while holding
+
+                # Optional UI indicator for holding kick: small dot in front of player
+                if is_holding:
+                    px = e.F.a.x; py = e.F.a.y
+                    bx = b.a.x; by = b.a.y
+                    dx = bx - px; dy = by - py
+                    dist = sqrt(dx * dx + dy * dy)
+                    if dist > 0:
+                        ux = dx / dist; uy = dy / dist
+                    else:
+                        ux = 1.0; uy = 0.0
+                    offset = e.F.la + 3
+                    e.kick_indicator = Vector(px + ux * offset, py + uy * offset)
+                else:
+                    e.kick_indicator = None
 
         self.wa.v(a)  # this.wa.v(a); // un pezzo della fisica importante, riga ~8395, cerca "v: function (a) {"
 

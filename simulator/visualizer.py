@@ -38,6 +38,11 @@ def draw_frame(screen, gameplay: GamePlay, reward: Optional[float] = None, ret: 
         pygame.draw.circle(screen, (0, 0, 0),
                            (center[0] + int(round(gameplay.wa.K[5].a.x)), center[1] + int(round(gameplay.wa.K[5].a.y))),
                            gameplay.wa.K[5].la, 1)
+    # White indicator near red when holding kick
+    if getattr(gameplay.Pa.D[1], 'kick_indicator', None) is not None:
+        ki = gameplay.Pa.D[1].kick_indicator
+        pygame.draw.circle(screen, (255, 255, 255),
+                           (center[0] + int(round(ki.x)), center[1] + int(round(ki.y))), 3, 0)
 
     # Blu
     pygame.draw.circle(screen, (100, 90, 245),
@@ -51,6 +56,11 @@ def draw_frame(screen, gameplay: GamePlay, reward: Optional[float] = None, ret: 
         pygame.draw.circle(screen, (0, 0, 0),
                            (center[0] + int(round(gameplay.wa.K[6].a.x)), center[1] + int(round(gameplay.wa.K[6].a.y))),
                            gameplay.wa.K[6].la, 1)
+    # White indicator near blue when holding kick
+    if getattr(gameplay.Pa.D[2], 'kick_indicator', None) is not None:
+        ki = gameplay.Pa.D[2].kick_indicator
+        pygame.draw.circle(screen, (255, 255, 255),
+                           (center[0] + int(round(ki.x)), center[1] + int(round(ki.y))), 3, 0)
 
     # Palla
     pygame.draw.circle(screen, (220, 220, 220),
@@ -81,6 +91,18 @@ def draw_frame(screen, gameplay: GamePlay, reward: Optional[float] = None, ret: 
     if reward is not None and ret is not None:
         text = font_small.render("Rew: %2.3f (Ret: %2.3f)" % (reward, ret), True, (0, 0, 0))
         screen.blit(text, (center[0] + 150, center[1] - 220))
+
+    # Debug HUD: show player speeds and hold flags
+    red_v = gameplay.wa.K[5].M
+    blue_v = gameplay.wa.K[6].M
+    red_speed = (red_v.x ** 2 + red_v.y ** 2) ** 0.5
+    blue_speed = (blue_v.x ** 2 + blue_v.y ** 2) ** 0.5
+    red_hold = getattr(gameplay.Pa.D[1], 'hold', False)
+    blue_hold = getattr(gameplay.Pa.D[2], 'hold', False)
+    hud1 = font_small.render(f"RED | v={red_speed:5.2f} hold={'Y' if red_hold else 'N'}", True, (0, 0, 0))
+    hud2 = font_small.render(f"BLU | v={blue_speed:5.2f} hold={'Y' if blue_hold else 'N'}", True, (0, 0, 0))
+    screen.blit(hud1, (10, 10))
+    screen.blit(hud2, (10, 30))
 
 
 if __name__ == '__main__':

@@ -201,6 +201,11 @@ class User:
         self.F = None  # type: Object
         self.T = 0
         self.bc = False  # type: bool
+        # Hold/kick state (engine-managed):
+        # - hold: True while kick button is held this frame
+        # - kicked_this_hold: single-shot latch to avoid repeated impulses while holding
+        self.hold = False
+        self.kicked_this_hold = False
         self.im = None
         self.jb = None
         self.mb = 0
@@ -211,6 +216,9 @@ class User:
         self.wd = "it"  # type: str
         self.wg = 0
         self.xd = False  # type: bool
+        # Optional UI state: position of kick indicator when holding kick (X);
+        # purely informational for renderers, not used in physics/collisions.
+        self.kick_indicator = None
 
 class mb:
     """
@@ -545,13 +553,19 @@ class GamePlay:
                 n = f.x - g.x  # , n = f.x - g.x
                 g = f.y - g.y  # , g = f.y - g.y
                 k = math.sqrt(n * n + g * g) - b.la - e.F.la  # , k = Math.sqrt(n * n + g * g) - b.la - e.F.la;
-
-                if (e.mb & 16) == 0:  # if ((e.mb & 16) == 0)
-                    e.bc = 0  # e.bc = 0
+                # Kick-hold mechanic: bit 16 is the kick (X) button.
+                # When held, apply slowdown; allow a single kick impulse per hold.
+                is_holding = (e.mb & 16) != 0
+                # Rising edge: reset single-shot latch
+                if is_holding and not e.hold:
+                    e.kicked_this_hold = False
+                e.hold = is_holding
+                # UI flag mirrors hold
+                e.bc = 1 if is_holding else 0
 
                 f = self.U.Rd  # f = this.U.Rd;
-                if e.bc and k < 4:  # if (e.bc && 4 > k) {
-                    if f.Kd != 0: # if (0 != f.Kd) {
+                if is_holding and (not e.kicked_this_hold) and k < 4:  # if holding, not yet kicked, and in range
+                    if f.Kd != 0:  # if (0 != f.Kd) {
                         # Entra qua quando la palla viene calciata
                         k = math.sqrt(n * n + g * g)  # var k = Math.sqrt(n * n + g * g)
                         h = f.Kd  # , h = f.Kd
@@ -566,7 +580,7 @@ class GamePlay:
                             this.Pa.Oh(e); // il suono di un calcio?
                         }
                         """
-                    e.bc = 0  # e.bc = 0;
+                    e.kicked_this_hold = True
 
                 k = e.mb  # k = e.mb;
                 g = 0
@@ -582,10 +596,26 @@ class GamePlay:
                     g /= k  # g /= k;
 
                 k = e.F.M  # k = e.F.M;
-                h = f.Be if e.bc else f.me  # h = e.bc ? f.Be : f.me;
+                h = f.Be if is_holding else f.me  # h = e.hold ? f.Be : f.me;
                 k.x += n * h  # k.x += n * h;
                 k.y += g * h  # k.y += g * h;
-                e.F.Ba = f.Ce if e.bc else f.Ba  # e.F.Ba = e.bc ? f.Ce : f.
+                e.F.Ba = f.Ce if is_holding else f.Ba  # e.F.Ba = hold ? f.Ce : f.Ba
+
+                # Update optional kick indicator for renderers when holding kick (white circle near player).
+                if is_holding:
+                    # Place indicator towards the ball from player position, slightly outside player radius.
+                    px, py = e.F.a.x, e.F.a.y
+                    bx, by = b.a.x, b.a.y
+                    dx, dy = bx - px, by - py
+                    dist = math.sqrt(dx * dx + dy * dy)
+                    if dist > 0:
+                        ux, uy = dx / dist, dy / dist
+                    else:
+                        ux, uy = 1.0, 0.0
+                    offset = e.F.la + 3  # small offset beyond player radius
+                    e.kick_indicator = Vector(px + ux * offset, py + uy * offset)
+                else:
+                    e.kick_indicator = None
 
         self.wa.v(a)  # this.wa.v(a); // un pezzo della fisica importante, riga ~8395, cerca "v: function (a) {"
 

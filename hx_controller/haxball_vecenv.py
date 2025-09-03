@@ -7,19 +7,29 @@ from baselines.common.vec_env import VecEnv
 import numpy as np
 from baselines.common.vec_env.util import obs_space_info
 from simulator import create_start_conditions
-from simulator.simulator.cenv import Vector as CVector, create_start_conditions as Ccreate_start_conditions
+CYTHON_AVAILABLE = False
+try:
+    from simulator.cenv import create_start_conditions as Ccreate_start_conditions  # type: ignore
+    CYTHON_AVAILABLE = True
+except Exception:
+    try:
+        from simulator.simulator.cenv import create_start_conditions as Ccreate_start_conditions  # type: ignore
+        CYTHON_AVAILABLE = True
+    except Exception:
+        Ccreate_start_conditions = None  # type: ignore
 from hx_controller.haxball_gym import Haxball
 from multiprocessing import Process, Pipe, cpu_count
 from multiprocessing.connection import Connection
 
 
 class HaxballVecEnv(VecEnv):
-    def __init__(self, num_fields, max_ticks=2400):
+    def __init__(self, num_fields, max_ticks=2400, use_python_engine: bool = False):
         self.num_fields = num_fields
         self.num_envs = num_fields * 2
         self.envs = []
+        self.use_python_engine = use_python_engine or (not CYTHON_AVAILABLE)
         for i in range(num_fields):
-            gameplay = Ccreate_start_conditions()
+            gameplay = create_start_conditions() if self.use_python_engine else Ccreate_start_conditions()
             env = Haxball(gameplay=gameplay, max_ticks=max_ticks)
             self.envs.append(env)
 
@@ -152,7 +162,8 @@ class HaxballVecEnv(VecEnv):
 
 
 def env_worker(conn: Connection, **env_kwargs):
-    gameplay = Ccreate_start_conditions()
+    use_python_engine = env_kwargs.pop('use_python_engine', False)
+    gameplay = create_start_conditions() if use_python_engine or (not CYTHON_AVAILABLE) else Ccreate_start_conditions()
     env = Haxball(gameplay=gameplay, **env_kwargs)
     i = 0
     while True:
@@ -199,20 +210,21 @@ def env_worker(conn: Connection, **env_kwargs):
 
 
 class HaxballSubProcVecEnv(HaxballVecEnv):
-    def __init__(self, num_fields, max_ticks=2400):
+    def __init__(self, num_fields, max_ticks=2400, use_python_engine: bool = False):
         self.num_fields = num_fields
         self.num_envs = num_fields * 2
         self.max_ticks = max_ticks
+        self.use_python_engine = use_python_engine or (not CYTHON_AVAILABLE)
 
-        self.connections = []  # type: List[Pipe]
-        self.processes = []  # type: List[Process]
+        self.connections = []  # pipes to workers
+        self.processes = []
         for i in range(self.num_fields):
             parent_conn, child_conn = Pipe()
             p = Process(
                 target=env_worker,
                 daemon=True,
                 args=(child_conn, ),
-                kwargs=dict(max_ticks=self.max_ticks)
+                kwargs=dict(max_ticks=self.max_ticks, use_python_engine=self.use_python_engine)
             )
             p.start()
             self.connections.append(parent_conn)
@@ -237,15 +249,15 @@ class HaxballSubProcVecEnv(HaxballVecEnv):
         for process in self.processes:
             process.terminate()
 
-        self.connections = []  # type: List[Pipe]
-        self.processes = []  # type: List[Process]
+        self.connections = []  # pipes to workers
+        self.processes = []
         for i in range(self.num_fields):
             parent_conn, child_conn = Pipe()
             p = Process(
                 target=env_worker,
                 daemon=True,
                 args=(child_conn,),
-                kwargs=dict(max_ticks=self.max_ticks)
+                kwargs=dict(max_ticks=self.max_ticks, use_python_engine=self.use_python_engine)
             )
             p.start()
             self.connections.append(parent_conn)
@@ -294,12 +306,13 @@ class HaxballSubProcVecEnv(HaxballVecEnv):
 
 def env_worker_multiple_envs(conn: Connection, **env_kwargs):
     envs = {}
+    use_python_engine = env_kwargs.pop('use_python_engine', False)
 
     def get_env(field_id):
         if field_id in envs:
             return envs[field_id]
         else:
-            gameplay = Ccreate_start_conditions()
+            gameplay = create_start_conditions() if use_python_engine or (not CYTHON_AVAILABLE) else Ccreate_start_conditions()
             env = Haxball(gameplay=gameplay, **env_kwargs)
             envs[field_id] = env
             return env
